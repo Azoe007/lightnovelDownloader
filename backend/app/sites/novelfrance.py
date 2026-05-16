@@ -28,18 +28,45 @@ class NovelFrance(BaseSite):
     
     def get_title(self) -> str:
         """Récupère le titre du novel"""
-        data = get_json(self.info_url)
-        return data.get("title", self.slug)
+        try:
+            data = get_json(self.info_url)
+            return data.get("title", self.slug)
+        except Exception:
+            # fallback: parse the HTML page
+            soup = get_soup(f"{self.BASE_URL}/novel/{self.slug}")
+            h1 = soup.find("h1")
+            if h1:
+                return h1.get_text(strip=True)
+            return self.slug
     
     def get_author(self) -> Optional[str]:
         """Récupère l'auteur du novel"""
-        data = get_json(self.info_url)
-        return data.get("author")
+        try:
+            data = get_json(self.info_url)
+            return data.get("author")
+        except Exception:
+            soup = get_soup(f"{self.BASE_URL}/novel/{self.slug}")
+            # try common selectors
+            author_elem = soup.select_one('.author, .post-author, .byline')
+            if author_elem:
+                return author_elem.get_text(strip=True)
+            return None
     
     def get_description(self) -> Optional[str]:
         """Récupère la description du novel"""
-        data = get_json(self.info_url)
-        return data.get("description") or data.get("synopsis")
+        try:
+            data = get_json(self.info_url)
+            return data.get("description") or data.get("synopsis")
+        except Exception:
+            soup = get_soup(f"{self.BASE_URL}/novel/{self.slug}")
+            desc = soup.select_one('.summary, .description, .entry-summary')
+            if desc:
+                return desc.get_text(strip=True)
+            # meta description
+            meta = soup.find('meta', {'name': 'description'})
+            if meta and meta.get('content'):
+                return meta.get('content')
+            return None
     
     def fetch_cover(self) -> Optional[bytes]:
         """Télécharge la couverture du novel"""
