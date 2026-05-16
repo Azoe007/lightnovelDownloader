@@ -1,11 +1,15 @@
 services:
   - type: web
     name: lncrawler-backend
-    env: docker
+    env: python
     region: frankfurt
     plan: free
     rootDir: backend
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
       - key: DATABASE_URL
         value: sqlite+aiosqlite:///./lncrawler.db
       - key: DOWNLOAD_DIR
@@ -18,5 +22,5 @@ services:
         value: "1"
     disk:
       name: data
-      mountPath: /app
+      mountPath: /opt/render/project/src
       sizeGB: 1
