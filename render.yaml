@@ -5,6 +5,7 @@ services:
     region: frankfurt
     plan: free
     rootDir: backend
+    dockerfilePath: Dockerfile
     # Using Docker: Render will build the image from backend/Dockerfile
     # Build/start commands are handled inside the Docker image.
     envVars:
