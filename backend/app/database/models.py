@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Enum as SQLEnum, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Enum as SQLEnum, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -46,7 +46,7 @@ class Download(Base):
     __tablename__ = "downloads"
     
     id = Column(Integer, primary_key=True, index=True)
-    novel_id = Column(Integer, nullable=False)
+    novel_id = Column(Integer, ForeignKey("novels.id"), nullable=False)
     
     status = Column(SQLEnum(DownloadStatus), default=DownloadStatus.PENDING)
     progress = Column(Float, default=0.0)
@@ -76,7 +76,7 @@ class Favorite(Base):
     __tablename__ = "favorites"
     
     id = Column(Integer, primary_key=True, index=True)
-    novel_id = Column(Integer, nullable=False)
+    novel_id = Column(Integer, ForeignKey("novels.id"), nullable=False)
     
     tags = Column(JSON, default=list)
     notes = Column(Text, nullable=True)
@@ -91,7 +91,7 @@ class History(Base):
     __tablename__ = "history"
     
     id = Column(Integer, primary_key=True, index=True)
-    novel_id = Column(Integer, nullable=False)
+    novel_id = Column(Integer, ForeignKey("novels.id"), nullable=False)
     
     chapters_downloaded = Column(Integer, default=0)
     file_path = Column(String(500), nullable=False)
