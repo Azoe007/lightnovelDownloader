@@ -2,11 +2,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-COPY backend/requirements.txt .
+# Copy requirements from the build context (Dockerfile is inside `backend/`,
+# so use relative paths — do NOT prefix with `backend/`)
+COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ .
+# Copy the rest of the backend source into the image
+COPY . .
 
 EXPOSE 10000
 
