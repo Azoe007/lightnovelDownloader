@@ -90,19 +90,44 @@ class DownloadManager:
                 
                 def progress_callback(current: int, total: int, chapter_title: str):
                     """Callback pour mettre à jour la progression"""
-                    download.current_chapter = current
-                    download.current_chapter_title = chapter_title
-                    download.progress = (current / total) * 100
-                    
-                    # Calcule la vitesse
-                    elapsed = (datetime.utcnow() - download.started_at).total_seconds()
-                    if elapsed > 0:
-                        download.speed = current / elapsed
-                    
-                    # Calcule l'ETA
-                    remaining = total - current
-                    if download.speed > 0:
-                        download.eta = int(remaining / download.speed)
+                    # Schedule an async DB update from the worker thread
+                    async def _update_progress():
+                        async with async_session_maker() as _db:
+                            res = await _db.execute(
+                                select(Download).where(Download.id == download_id)
+                            )
+                            _download = res.scalar_one_or_none()
+                            if not _download:
+                                return
+
+                            _download.current_chapter = current
+                            _download.current_chapter_title = chapter_title
+                            # avoid division by zero
+                            if total and total > 0:
+                                _download.progress = (current / total) * 100
+                            else:
+                                _download.progress = 0.0
+
+                            # Calcule la vitesse
+                            if _download.started_at:
+                                elapsed = (datetime.utcnow() - _download.started_at).total_seconds()
+                                if elapsed > 0:
+                                    _download.speed = current / elapsed
+
+                            # Calcule l'ETA
+                            remaining = total - current
+                            if _download.speed and _download.speed > 0:
+                                _download.eta = int(remaining / _download.speed)
+
+                            await _db.commit()
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        # If called from a thread (builder runs in thread), schedule safely
+                        asyncio.run_coroutine_threadsafe(_update_progress(), loop)
+                    except RuntimeError:
+                        # Fallback: if no running loop, run coroutine in a new task
+                        asyncio.create_task(_update_progress())
                 
                 # Construit l'EPUB de manière synchrone (dans un thread)
                 output_path = await asyncio.to_thread(

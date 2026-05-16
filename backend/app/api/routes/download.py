@@ -8,6 +8,7 @@ from app.database.models import Download, DownloadStatus, Novel
 from app.schemas.download import DownloadCreate, DownloadResponse, DownloadProgress
 from app.core.download_manager import download_manager
 from app.sites.registry import registry
+import uuid
 
 router = APIRouter(prefix="/api/downloads", tags=["Downloads"])
 
@@ -30,9 +31,11 @@ async def start_download(
         )
     
     # Crée le novel (sera mis à jour pendant le download)
+    # Utilise un slug temporaire unique pour éviter les collisions sur la contrainte UNIQUE
+    temp_slug = f"pending-{uuid.uuid4().hex[:8]}"
     novel = Novel(
         title="Pending...",
-        slug="pending",
+        slug=temp_slug,
         source_url=download_data.url,
         source_site="unknown"
     )
