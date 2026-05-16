@@ -1,12 +1,12 @@
 services:
   - type: web
     name: lncrawler-backend
-    env: python
+    env: docker
     region: frankfurt
     plan: free
     rootDir: backend
-    buildCommand: "mkdir -p /tmp/cargo && export CARGO_HOME=/tmp/cargo && pip install -r requirements.txt"
-    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    # Using Docker: Render will build the image from backend/Dockerfile
+    # Build/start commands are handled inside the Docker image.
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
