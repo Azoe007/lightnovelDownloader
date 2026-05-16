@@ -23,5 +23,7 @@ services:
         value: "1"
     disk:
       name: data
-      mountPath: /opt/render/project/src
+      # Mount persistent disk outside of the project source to avoid
+      # overwriting files in the app directory. Use /data for runtime storage.
+      mountPath: /data
       sizeGB: 1
