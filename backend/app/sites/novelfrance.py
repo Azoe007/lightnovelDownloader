@@ -90,48 +90,101 @@ class NovelFrance(BaseSite):
         """Récupère la liste de tous les chapitres"""
         chapters = []
         seen = set()
-        
-        skip = 0
-        has_more = True
-        
-        while has_more:
-            url = f"{self.api_url}?skip={skip}&take={self.TAKE}&order=desc"
-            data = get_json(url)
-            
-            batch = data.get("chapters", [])
-            has_more = data.get("hasMore", False)
-            
-            if not batch:
-                break
-            
-            for item in batch:
-                title = item.get("title")
-                slug = item.get("slug")
-                number = item.get("chapterNumber")
-                
-                if not slug:
+
+        # Premièrement, essaye l'API JSON (rapide)
+        try:
+            skip = 0
+            has_more = True
+
+            while has_more:
+                url = f"{self.api_url}?skip={skip}&take={self.TAKE}&order=desc"
+                data = get_json(url)
+
+                batch = data.get("chapters", [])
+                has_more = data.get("hasMore", False)
+
+                if not batch:
+                    break
+
+                for item in batch:
+                    title = item.get("title")
+                    slug = item.get("slug")
+                    number = item.get("chapterNumber")
+
+                    if not slug:
+                        continue
+
+                    chapter_url = f"{self.BASE_URL}/novel/{self.slug}/{slug}"
+
+                    if chapter_url in seen:
+                        continue
+
+                    seen.add(chapter_url)
+
+                    chapters.append({
+                        "title": title,
+                        "chapterNumber": number,
+                        "url": chapter_url
+                    })
+
+                skip += self.TAKE
+                time.sleep(0.2)  # Évite de spammer l'API
+
+            # Trie les chapitres par numéro
+            chapters.sort(key=lambda x: x["chapterNumber"] if x["chapterNumber"] else 0)
+            if chapters:
+                return chapters
+
+        except Exception:
+            # Si l'API échoue (403 par ex.), on tombe en fallback HTML
+            pass
+
+        # Fallback: parse la page HTML principale et extrait les liens de chapitres
+        try:
+            page_url = f"{self.BASE_URL}/novel/{self.slug}"
+            soup = get_soup(page_url)
+            # Recherche tous les liens qui ressemblent à des chapitres
+            anchors = soup.find_all('a', href=True)
+            for a in anchors:
+                href = a['href']
+                # normalise
+                if href.startswith('/'):
+                    href_full = self.BASE_URL + href
+                elif href.startswith(self.BASE_URL):
+                    href_full = href
+                else:
                     continue
-                
-                chapter_url = f"{self.BASE_URL}/novel/{self.slug}/{slug}"
-                
-                if chapter_url in seen:
-                    continue
-                
-                seen.add(chapter_url)
-                
-                chapters.append({
-                    "title": title,
-                    "chapterNumber": number,
-                    "url": chapter_url
-                })
-            
-            skip += self.TAKE
-            time.sleep(0.2)  # Évite de spammer l'API
-        
-        # Trie les chapitres par numéro
-        chapters.sort(key=lambda x: x["chapterNumber"] if x["chapterNumber"] else 0)
-        
-        return chapters
+
+                # correspond aux chapitres: /novel/{slug}/{chapter-slug}
+                pattern = f"/novel/{self.slug}/"
+                if pattern in href_full:
+                    if href_full in seen:
+                        continue
+                    seen.add(href_full)
+
+                    title_text = a.get_text(strip=True) or None
+                    # try to extract chapter number from text or href
+                    number = None
+                    m = re.search(r"(\d+)(?!.*\d)", a.get_text() or '')
+                    if m:
+                        try:
+                            number = int(m.group(1))
+                        except Exception:
+                            number = None
+
+                    chapters.append({
+                        "title": title_text,
+                        "chapterNumber": number,
+                        "url": href_full
+                    })
+
+            # Try to sort by chapterNumber when available
+            chapters.sort(key=lambda x: x["chapterNumber"] if x["chapterNumber"] else 0)
+            return chapters
+
+        except Exception:
+            # dernier recours: retourne liste vide
+            return []
     
     def fetch_chapter(self, url: str) -> Dict[str, str]:
         """Récupère le contenu d'un chapitre"""
